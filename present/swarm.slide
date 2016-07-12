@@ -1,0 +1,247 @@
+Orchestration in Docker
+Docker Denver Meetup
+12 Jul 2016
+
+Stephen J Day
+Docker, Inc.
+stephen.day@docker.com
+http://github.com/stevvooe
+@stevvooe
+
+* 
+
+.image large_v-trans.png _ 600
+
+* Overview
+
+1. What's New in Docker 1.12
+2. Orchestration
+3. Demo
+4. Architecture
+
+: This is an early version of a larger talk
+: Goal today is to generate socratic WTFs!
+: Hopefully, you'll come out of this talk with the right questions
+
+* What's new in Docker 1.12?
+
+: Everything in this talk in from 1.12-rc
+: Most features are available in the RC and may change before release
+
+* What's new in Docker 1.12?
+
+- Orchestration
+- Docker for Mac, Windows, AWS, Azure
+- Healthchecks
+- Plugin management (Experimental)
+- Distributed Application Bundles (Experimental)
+
+Details:
+
+.link https://www.youtube.com/watch?v=FgXJKw37po8&list=PLkA60AVN3hh9gnrYwNO6zTb9U3i1Y9FMY&index=4 DockerCon 2016: What's new in Docker 1.12?
+
+* Orchestration
+
+: Added in Docker 1.12
+: Brings new concept of "Services" to the table
+: Use definitions to distribute work across cluster
+: State reconciliation -> desired state vs actual state
+: Built on top of SwarmKit
+
+* What is Orchestration?
+
+- Organize nodes and resources
+- Central authority for cluster
+- Lifecycle management of containers in a cluster
+- Service discovery
+- Networking
+
+* Why Orchestration?
+
+: Simplifies infrastructure management
+: Express application topology at a higher level
+: Use resources most efficiently
+: No one wants to run individual containers
+
+* Nodes
+
+: Docker Engines can now be organizated into a swarm of nodes
+: Role-based topology control with high-availability built-in
+: End to end mTLS out of the box
+
+* Setting up a Swarm
+
+Enable Swarm mode:
+
+  $ docker swarm init
+
+Join an existing swarm:
+
+  $ docker swarm join <manager>:2377
+
+.link https://www.youtube.com/watch?v=FgXJKw37po8&list=PLkA60AVN3hh9gnrYwNO6zTb9U3i1Y9FMY&index=4 See DockerCon Talk for Details
+
+: More details are available in the talk
+
+* Services
+
+: Defines an a set of containers that must run in cluster
+: Enumerates resources, network availability, placement
+: Express desired state of the cluster
+: Example: I want N containers of this type running
+: Example: These volumes are required
+: Example: Limit instances to 1 cpu
+: Example: Make this port available
+
+* Creating a Service
+
+To create a _Service_:
+
+  $ docker service create redis
+
+What does it do?
+
+- Creates a new service with the `redis` image
+- Starts that service in your cluster
+- Containers are created to satisfy that service
+- The containers are scheduled to an active node
+
+	$ docker service ls                                                                                                                                                                                                                              master ⬆ ✱ ◼
+	ID            NAME         REPLICAS  IMAGE  COMMAND
+	5v7rxd0f1fb5  jovial_wing  1/1       redis
+
+* Scaling a Service
+
+We can see our service only has 1 instance:
+
+	$ docker service ls                                                                                                                                                                                                                              master ⬆ ✱ ◼
+	ID            NAME         REPLICAS  IMAGE  COMMAND
+	5v7rxd0f1fb5  jovial_wing  1/1       redis
+
+How about more?
+
+	$ docker service scale redis=5
+
+	$ docker service ls                                                                                                                                                                                                                              master ⬆ ✱ ◼
+	ID            NAME         REPLICAS  IMAGE  COMMAND
+	5v7rxd0f1fb5  jovial_wing  1/5       redis
+
+: Create more instances in your cluster
+: New instances are dispatched across available nodes
+: A single VIP is allocated that routes to any running instance
+: Tasks will be generated until there are 5 running instances
+
+* Demo
+
+: Init swarm mode.
+: Create network
+: Create service that is exposed.
+: Show proxy creation
+: no backends, add our service
+: updates result in missed requests
+: show update parallelism configuration
+: Scale our proxy and service
+: talk about nodes
+: Deploy V2
+: downweight it with proxy update
+: Shift weight over
+: Turn down v1
+
+* Concepts
+
+: Let's step back for a second
+
+- _Nodes_
+- _Services_
+- Tasks
+- Load Balancing
+
+* Services
+
+- Define desired state
+- Long running
+
+: "No one cares about containers"
+: Cluster-wide lifecycle hook
+
+* What's in a service?
+
+- A template for creating containers
+- When containers should be created
+- Where the containers should be placed
+- How the service can be accessed outside the cluster
+
+* Tasks
+
+A `ServiceSpec` defines how to create each `Task`
+
+- Atomic scheduling unit of SwarmKit
+- Runs a container (or any runtime)
+- Assigned to a node once
+
+Defined by `TaskSpec` as part of service:
+
+- runtime
+- resource
+- requirements
+- placement
+
+* Concepts
+
+Services create tasks to be scheduled to nodes.
+
+* Service Discovery and Load Balancing
+
+- IP allocated to every single container
+- L3/4 load balancing using IPVS
+- Full routing mesh populated through gossip
+- A service attached to network only needs names of other services
+
+: A webapp using a service called redis only needs "redis" in the configuration
+
+* Publishing Ports
+
+One can access a service by publishing a port:
+
+  $ docker service create -p 80:8080 webapp
+
+Service now accessible from any node.
+
+* Architecture
+
+- Services are submitted to Docker API
+- Orchestrator generates tasks to satisfy conditions of service
+- Allocator ensures task has appropriate resources
+- Scheduler places the task on a `Node
+- Workers execute the assigned tasks on a Node
+
+
+* Distributed Application Bundles
+
+: A format that can export portable cluster state
+: End goal is to relocate applications
+
+* What did I leave out?
+
+: Constraints
+: Volumes 
+: Checkout feature list
+
+* Feedback
+
+.link https://docs.docker.com/ Try it out with various Docker flavors
+
+: Still in RC period
+: Still going through bugs
+
+.link https://github.com/docker/docker/issues File An Issue
+
+* Links
+
+.link https://www.youtube.com/watch?v=FgXJKw37po8&list=PLkA60AVN3hh9gnrYwNO6zTb9U3i1Y9FMY&index=4 DockerCon 2016: What's new in Docker 1.12?
+.link https://docs.docker.com/engine/swarm/ Docker Swarm Mode Docs
+.link https://github.com/docker/docker Docker Repository
+.link https://github.com/docker/swarmkit SwarmKit
+
+.image small_h-trans.png
+
